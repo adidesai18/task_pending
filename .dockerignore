@@ -1,0 +1,5 @@
+.gitignore
+# Ignore virtual environment
+.venv/
+.env
+firebase.json
