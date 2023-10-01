@@ -1,3 +1,15 @@
+from flask import Flask
+from threading import Thread
+
+app = Flask(__name__)
+
+@app.route("/health")
+def health_check():
+    return "OK", 200
+
+def run_flask_app():
+    app.run(host="0.0.0.0", port=8080)
+
 import datetime
 from datetime import timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -199,5 +211,9 @@ dispatcher.add_handler(conv_handler)
 dispatcher.add_handler(CallbackQueryHandler(button))
 dispatcher.add_handler(CommandHandler('status', status_command))
 
-# Start the bot
-updater.start_polling()
+if __name__ == "__main__":
+    t = Thread(target=run_flask_app)
+    t.start()
+
+    # Start the Telegram bot
+    updater.start_polling()
