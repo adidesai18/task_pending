@@ -1,23 +1,17 @@
-# Use an official Python runtime as the base image
-FROM python:3.9-slim
+# Use an official Python runtime as a parent image
+FROM python:3.8-slim-buster
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container
-COPY requirements.txt .
+# Copy the requirements.txt into the container at /app
+COPY requirements.txt /app/
 
-# Install the Python dependencies
+# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the code into the container
-COPY . .
+# Copy the current directory contents into the container at /app
+COPY . /app/
 
-# Expose port 8080
-EXPOSE 8080
-
-# Switch to a non-root user
-USER 1000
-
-# Run the script
-CMD [ "python3", "main.py" ]
+# Run your application
+CMD ["python", "main.py"]
