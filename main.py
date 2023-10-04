@@ -106,7 +106,7 @@ def set_reminder(update: Update, context: CallbackContext):
             update.message.reply_text("Task text cannot be empty.")
             return ConversationHandler.END
         chat_id = update.message.chat_id
-        current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
+        current_time = datetime.now(pytz.timezone('Asia/Kolkata'))
         batch = db.batch()
         for days in [1, 3, 7, 15, 30]:
             future_task_time = current_time + timedelta(days=days)
@@ -203,12 +203,13 @@ def status_command(update: Update, context: CallbackContext):
             del tasks_cache[chat_id]
 
     except Exception as e:
+        print("Hello")
         update.message.reply_text(f"An error occurred: {str(e)}")
 
 # Function to encapsulate time details
 def get_time_details(time_zone: str):
     ist = pytz.timezone(time_zone)
-    current_time = datetime.datetime.now(ist)
+    current_time = datetime.now(ist)
     future_time_limit = current_time + timedelta(hours=24)
     return ist, current_time, future_time_limit
 
@@ -222,7 +223,7 @@ def ask_for_date(update: Update, context: CallbackContext):
 def show_date_tasks(update: Update, context: CallbackContext):
     date_str = update.message.text
     try:
-        date_object = datetime.datetime.strptime(date_str, "%d:%m:%Y").date()
+        date_object = datetime.strptime(date_str, "%d:%m:%Y").date()
     except ValueError:
         update.message.reply_text("Invalid date format. Please enter date in DD:MM:YYYY format.")
         return DATE  # Assuming DATE is a defined state in your conversation handler
@@ -268,7 +269,6 @@ def generate_message_text(section_title, task_list):
     else:
         return f"\n*{section_title}:*\nNone\n"
 
-
 @run_async
 def reminder_callback(context: CallbackContext):
     job = context.job
@@ -280,7 +280,7 @@ def reminder_callback(context: CallbackContext):
         return
     
     ist = pytz.timezone('Asia/Kolkata')
-    if datetime.datetime.now(ist).date() != task_data['next_reminder_time'].astimezone(ist).date():
+    if datetime.now(ist).date() != task_data['next_reminder_time'].astimezone(ist).date():
         return
 
     send_pending_message(context, job, task_ref.id, task_data['task'])
