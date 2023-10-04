@@ -13,7 +13,7 @@ def health_check():
 def run_flask_app():
     app.run(host="0.0.0.0", port=8080)
 
-from datetime import datetime, timedelta
+from datetime import timedelta, datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
 from telegram import Update
@@ -106,7 +106,7 @@ def set_reminder(update: Update, context: CallbackContext):
             update.message.reply_text("Task text cannot be empty.")
             return ConversationHandler.END
         chat_id = update.message.chat_id
-        current_time = datetime.now(pytz.timezone('Asia/Kolkata'))
+        current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
         batch = db.batch()
         for days in [1, 3, 7, 15, 30]:
             future_task_time = current_time + timedelta(days=days)
