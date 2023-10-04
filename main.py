@@ -8,13 +8,12 @@ app = Flask(__name__)
 
 @app.route("/health")
 def health_check():
-    return "OK", 200
+    return "OK", 200    
 
 def run_flask_app():
     app.run(host="0.0.0.0", port=8080)
 
-import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
 from telegram import Update
@@ -54,7 +53,6 @@ tasks_cache = {}
 # Constants for states in the conversation handler
 TASK, DATE = range(2)
 
-# Modified show_tasks function
 @run_async
 def show_tasks(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
@@ -63,24 +61,30 @@ def show_tasks(update: Update, context: CallbackContext):
         return
 
     ist = pytz.timezone('Asia/Kolkata')
-    current_time = datetime.datetime.now().astimezone(ist)
+    current_time = datetime.now().astimezone(ist)
+    current_date = current_time.date()
     future_time_limit = current_time + timedelta(hours=24)
 
     tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
     
     # Convert the time to UTC as Firestore stores it in UTC
-    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", "<=", future_time_limit.astimezone(pytz.UTC)).where("next_reminder_time", ">=", datetime.datetime.now().astimezone(ist)).limit(10).stream()
+    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", "<=", future_time_limit.astimezone(pytz.UTC)).where("next_reminder_time", ">=", current_time).limit(10).stream()
 
-
-
-  
     message_text = "*Pending Tasks for Next 24 Hours:*\n\n"
 
     task_list = []
     for task in tasks:
         task_data = task.to_dict()
         task_date_time = task_data['next_reminder_time'].astimezone(ist)
-        formatted_date_time = task_date_time.strftime('%d-%m-%Y %I:%M %p')
+        task_date = task_date_time.date()
+        
+        if task_date == current_date:
+            formatted_date_time = f"Today {task_date_time.strftime('%I:%M %p')}"
+        elif task_date == current_date + timedelta(days=1):
+            formatted_date_time = f"Tomorrow {task_date_time.strftime('%I:%M %p')}"
+        else:
+            formatted_date_time = task_date_time.strftime('%d-%m-%Y %I:%M %p')
+            
         task_list.append(f"*{task_data['task']}*\n   Scheduled for: {formatted_date_time}")
 
     message_text += "\n".join(task_list) if task_list else "No pending tasks."
@@ -101,11 +105,9 @@ def set_reminder(update: Update, context: CallbackContext):
         if not task_text:
             update.message.reply_text("Task text cannot be empty.")
             return ConversationHandler.END
-
         chat_id = update.message.chat_id
         current_time = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
         batch = db.batch()
-        
         for days in [1, 3, 7, 15, 30]:
             future_task_time = current_time + timedelta(days=days)
             task_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks").document()
