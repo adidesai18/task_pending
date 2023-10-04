@@ -69,7 +69,7 @@ def show_tasks(update: Update, context: CallbackContext):
     tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
     
     # Convert the time to UTC as Firestore stores it in UTC
-    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", "<=", future_time_limit.astimezone(pytz.UTC)).limit(10).stream()
+    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", "<=", future_time_limit.astimezone(pytz.UTC)).where("next_reminder_time", ">=", datetime.datetime.now().astimezone(ist)).limit(10).stream()
 
 
 
