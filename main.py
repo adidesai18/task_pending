@@ -166,14 +166,16 @@ def button(update: Update, context: CallbackContext):
                 return
 
             elif query.data == "show_tasks_today":
-                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", current_time + timedelta(days=1)).limit(10).stream()
-
+                new_datetime = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
+                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", new_datetime).limit(10).stream()
+            
+            message_text = "*Pending Tasks for Today:*\n\n"
             task_list = []
             for task in tasks:
                 task_data = task.to_dict()
                 task_list.append(f"*{task_data['task']}*")
 
-            message_text = "\n".join(task_list) if task_list else "No pending tasks for the selected day."
+            message_text += "\n".join(task_list) if task_list else "No pending tasks for today."
 
             keyboard = [
                 [InlineKeyboardButton("Today", callback_data='show_tasks_today') 
