@@ -211,27 +211,23 @@ def status_command(update: Update, context: CallbackContext):
     try:
         chat_id = update.message.chat_id
         tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
-
-        # Time zone and time logic encapsulated in a function (consider reusing across functions)
-        ist, current_time, future_time_limit = get_time_details('Asia/Kolkata')
-
-        tasks = tasks_ref.where("status", "==", "pending").stream()
+        ist = pytz.timezone('Asia/Kolkata')
+        tomorrow_date = datetime.now(ist).date() + timedelta(days=1)
+        tomorrow_morning= datetime.combine(tomorrow_date, time(0, 0)).astimezone(ist)
+        tomorrow_night= datetime.combine(tomorrow_date, time(23, 59)).astimezone(ist)
+        tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", tomorrow_morning).where("next_reminder_time", "<", tomorrow_night).limit(15).stream()
         keyboard = []
         index = 1
 
         for task in tasks:
             task_data = task.to_dict()
-            task_date_time = task_data['next_reminder_time'].astimezone(ist)
-
-            # Check for tasks within the next 24 hours
-            if current_time <= task_date_time <= future_time_limit:
-                btn_text = f"{index}. {task_data['task']}"
-                keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"none_{task.id}")])
-                keyboard.append([
-                    InlineKeyboardButton("Completed", callback_data=f"complete_{task.id}"),
-                    InlineKeyboardButton("Pending", callback_data=f"pending_{task.id}")
-                ])
-                index += 1
+            btn_text = f"{index}. {task_data['task']}"
+            keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"none_{task.id}")])
+            keyboard.append([
+                InlineKeyboardButton("Completed", callback_data=f"complete_{task.id}"),
+                InlineKeyboardButton("Pending", callback_data=f"pending_{task.id}")
+            ])
+            index += 1
 
         if keyboard:
             reply_markup = InlineKeyboardMarkup(keyboard)
