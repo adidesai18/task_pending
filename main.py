@@ -152,6 +152,7 @@ def button(update: Update, context: CallbackContext):
         if action in ["show","tasks", "tomorrow","other","today"]:
             tasks = None
             if query.data == "show_tasks_tomorrow":
+                message_text = "*Pending Tasks for Tomorrow:*\n\n"
                 tomorrow_date = datetime.now(ist).date() + timedelta(days=1)
                 tomorrow_morning= datetime.combine(tomorrow_date, time(0, 0)).astimezone(ist)
                 tomorrow_night= datetime.combine(tomorrow_date, time(23, 59)).astimezone(ist)
@@ -163,11 +164,12 @@ def button(update: Update, context: CallbackContext):
                 return
 
             elif query.data == "show_tasks_today":
+                message_text = "*Pending Tasks for Today:*\n\n"
                 today_morning = datetime.combine(datetime.now(ist).date(), time(0, 0)).astimezone(ist)
                 today_night = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
                 tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", today_morning).where("next_reminder_time", "<", today_night).limit(15).stream()
             
-            message_text = "*Pending Tasks for Today:*\n\n"
+           
             task_list = []
             for task in tasks:
                 task_data = task.to_dict()
