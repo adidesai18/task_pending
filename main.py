@@ -1,7 +1,7 @@
 from flask import Flask
 from threading import Thread
 from telegram.ext import run_async
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime,time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
 from telegram import Update
@@ -53,19 +53,29 @@ TASK, GENERAL_TASK = range(2)
 @run_async
 def show_tasks(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
-
+    print(chat_id)
+    print(tasks_cache)
     if chat_id in tasks_cache:
-        update.message.reply_text(tasks_cache[chat_id], parse_mode='Markdown')
+        keyboard = [
+            [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
+            InlineKeyboardButton("Other", callback_data='show_tasks_other')]
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(tasks_cache[chat_id], reply_markup=reply_markup, parse_mode='Markdown')
+        # Create InlineKeyboardButtons for "Tomorrow" and "Other"
+        
         return
 
     ist = pytz.timezone('Asia/Kolkata')
     current_time = datetime.now().astimezone(ist)
-    current_date = current_time.date()
-
+    print(current_time)
+    new_datetime = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
+    print(new_datetime)
     tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
     
     # Modify query to only select tasks for today
-    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", current_time + timedelta(days=1)).limit(10).stream()
+    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", new_datetime).limit(10).stream()
 
     message_text = "*Pending Tasks for Today:*\n\n"
 
@@ -105,6 +115,7 @@ def set_reminder(update: Update, context: CallbackContext):
             update.message.reply_text("Task text cannot be empty.")
             return ConversationHandler.END
         chat_id = update.message.chat_id
+        print(chat_id)
         current_time = datetime.now(pytz.timezone('Asia/Kolkata'))
         batch = db.batch()
         for days in [1, 3, 7, 15, 30]:
@@ -133,13 +144,50 @@ def set_reminder(update: Update, context: CallbackContext):
 def button(update: Update, context: CallbackContext):
     try:
         query = update.callback_query
-        query.answer()
+        action_data = query.data.split('_')
+        action = action_data[0]
 
-        action, task_ref_id = query.data.split('_')
+        ist = pytz.timezone('Asia/Kolkata')
+        current_time = datetime.now().astimezone(ist)
+        chat_id = query.message.chat_id
+        tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
 
-        task_ref = db.collection("tasks").document(str(query.message.chat_id)).collection("user_tasks").document(task_ref_id)
+        if action in ["show","tasks", "tomorrow","other","today"]:
+            tasks = None
+            if query.data == "show_tasks_tomorrow":
+                tomorrow_date = datetime.now(ist).date() + timedelta(days=1)
+                tomorrow_morning= datetime.combine(tomorrow_date, time(0, 0)).astimezone(ist)
+                tomorrow_night= datetime.combine(tomorrow_date, time(23, 59)).astimezone(ist)
+                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", tomorrow_morning).where("next_reminder_time", "<", tomorrow_night).limit(10).stream()
 
-        if action in ["complete", "pending"]:
+            elif query.data == "show_tasks_other":
+                query.edit_message_text("Please provide the date in DD:MM:YY format.")
+                # Further code needed to handle user response and show tasks for that date
+                return
+
+            elif query.data == "show_tasks_today":
+                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", current_time + timedelta(days=1)).limit(10).stream()
+
+            task_list = []
+            for task in tasks:
+                task_data = task.to_dict()
+                task_list.append(f"*{task_data['task']}*")
+
+            message_text = "\n".join(task_list) if task_list else "No pending tasks for the selected day."
+
+            keyboard = [
+                [InlineKeyboardButton("Today", callback_data='show_tasks_today') 
+                 if query.data == "show_tasks_tomorrow" 
+                 else InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
+                InlineKeyboardButton("Other", callback_data='show_tasks_other')]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            query.edit_message_text(message_text, reply_markup=reply_markup, parse_mode='Markdown')
+
+        elif action in ["complete", "pending"]:
+            task_ref_id = action_data[1]
+            task_ref = tasks_ref.document(task_ref_id)
             task_ref.update({"status": action})
             button_text = "Task Completed ✅" if action == "complete" else "Task Pending ⏳"
             new_keyboard = [[InlineKeyboardButton(button_text, callback_data=f"none_{task_ref_id}")]]
@@ -148,9 +196,8 @@ def button(update: Update, context: CallbackContext):
             query.edit_message_text(f"Task status set to {action}.")
 
             # Invalidate cache for this chat_id
-            if query.message.chat_id in tasks_cache:
-                del tasks_cache[query.message.chat_id]
-
+            if chat_id in tasks_cache:
+                del tasks_cache[chat_id]
         else:
             query.edit_message_text("Invalid action.")
 
@@ -243,7 +290,6 @@ def set_general_task(update: Update, context: CallbackContext):
         update.message.reply_text(f"An error occurred: {str(e)}")
         return ConversationHandler.END
 
-
 conv_handler = ConversationHandler(
     entry_points=[
         CommandHandler('add', add_task),
@@ -255,8 +301,6 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[],
 )
-
-
 
 # Add handlers
 dispatcher.add_handler(CommandHandler('show', show_tasks))
