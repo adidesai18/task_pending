@@ -212,10 +212,9 @@ def status_command(update: Update, context: CallbackContext):
         chat_id = update.message.chat_id
         tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
         ist = pytz.timezone('Asia/Kolkata')
-        tomorrow_date = datetime.now(ist).date() + timedelta(days=1)
-        tomorrow_morning= datetime.combine(tomorrow_date, time(0, 0)).astimezone(ist)
-        tomorrow_night= datetime.combine(tomorrow_date, time(23, 59)).astimezone(ist)
-        tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", tomorrow_morning).where("next_reminder_time", "<", tomorrow_night).limit(15).stream()
+        today_morning = datetime.combine(datetime.now(ist).date(), time(0, 0)).astimezone(ist)
+        today_night = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
+        tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", today_morning).where("next_reminder_time", "<", today_night).limit(15).stream()
         keyboard = []
         index = 1
 
