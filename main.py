@@ -1,8 +1,14 @@
 from flask import Flask
 from threading import Thread
 from telegram.ext import run_async
-from functools import lru_cache
-
+from datetime import timedelta, datetime
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
+from telegram import Update
+import firebase_admin
+from firebase_admin import credentials, firestore
+import os
+import pytz  # For time zone conversion
 
 app = Flask(__name__)
 
@@ -12,15 +18,6 @@ def health_check():
 
 def run_flask_app():
     app.run(host="0.0.0.0", port=8080)
-
-from datetime import timedelta, datetime
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
-from telegram import Update
-import firebase_admin
-from firebase_admin import credentials, firestore
-import os
-import pytz  # For time zone conversion
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
@@ -51,11 +48,12 @@ dispatcher = updater.dispatcher
 tasks_cache = {}
 
 # Constants for states in the conversation handler
-TASK, DATE = range(2)
+TASK, GENERAL_TASK = range(2)
 
 @run_async
 def show_tasks(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
+
     if chat_id in tasks_cache:
         update.message.reply_text(tasks_cache[chat_id], parse_mode='Markdown')
         return
@@ -63,34 +61,35 @@ def show_tasks(update: Update, context: CallbackContext):
     ist = pytz.timezone('Asia/Kolkata')
     current_time = datetime.now().astimezone(ist)
     current_date = current_time.date()
-    future_time_limit = current_time + timedelta(hours=24)
 
     tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
     
-    # Convert the time to UTC as Firestore stores it in UTC
-    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", "<=", future_time_limit.astimezone(pytz.UTC)).where("next_reminder_time", ">=", current_time).limit(10).stream()
+    # Modify query to only select tasks for today
+    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", current_time + timedelta(days=1)).limit(10).stream()
 
-    message_text = "*Pending Tasks for Next 24 Hours:*\n\n"
+    message_text = "*Pending Tasks for Today:*\n\n"
 
     task_list = []
     for task in tasks:
         task_data = task.to_dict()
-        task_date_time = task_data['next_reminder_time'].astimezone(ist)
-        task_date = task_date_time.date()
         
-        if task_date == current_date:
-            formatted_date_time = f"Today {task_date_time.strftime('%I:%M %p')}"
-        elif task_date == current_date + timedelta(days=1):
-            formatted_date_time = f"Tomorrow {task_date_time.strftime('%I:%M %p')}"
-        else:
-            formatted_date_time = task_date_time.strftime('%d-%m-%Y %I:%M %p')
-            
-        task_list.append(f"*{task_data['task']}*\n   Scheduled for: {formatted_date_time}")
+        # Only append the task name, omitting the schedule info
+        task_list.append(f"*{task_data['task']}*")
 
-    message_text += "\n".join(task_list) if task_list else "No pending tasks."
+    message_text += "\n".join(task_list) if task_list else "No pending tasks for today."
 
-    tasks_cache[chat_id] = message_text  # Cache the result
-    update.message.reply_text(message_text, parse_mode='Markdown')
+    # Create InlineKeyboardButtons for "Tomorrow" and "Other"
+    keyboard = [
+        [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
+         InlineKeyboardButton("Other", callback_data='show_tasks_other')]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    # Cache the result before sending it
+    tasks_cache[chat_id] = message_text
+
+    update.message.reply_text(message_text, reply_markup=reply_markup, parse_mode='Markdown')
 
 # Function to add a task
 @run_async
@@ -117,13 +116,6 @@ def set_reminder(update: Update, context: CallbackContext):
                 "status": "pending",
                 "next_reminder_time": future_task_time
             })
-            
-            context.job_queue.run_once(
-                reminder_callback,
-                (future_task_time - current_time).seconds,
-                context={"chat_id": chat_id, "task_ref": task_ref.id}  # Assuming task_ref.id gives the document ID
-            )
-        
         batch.commit()
         
         # Invalidate cache for this chat_id
@@ -213,113 +205,64 @@ def get_time_details(time_zone: str):
     future_time_limit = current_time + timedelta(hours=24)
     return ist, current_time, future_time_limit
 
-# Function to ask for a date
 @run_async
-def ask_for_date(update: Update, context: CallbackContext):
-    update.message.reply_text("Please enter the date in DD:MM:YYYY format.")
-    return DATE
+def add_general_task(update: Update, context: CallbackContext):
+    update.message.reply_text("Please enter the general task for today.")
+    return GENERAL_TASK
 
 @run_async
-def show_date_tasks(update: Update, context: CallbackContext):
-    date_str = update.message.text
+def set_general_task(update: Update, context: CallbackContext):
     try:
-        date_object = datetime.strptime(date_str, "%d:%m:%Y").date()
-    except ValueError:
-        update.message.reply_text("Invalid date format. Please enter date in DD:MM:YYYY format.")
-        return DATE  # Assuming DATE is a defined state in your conversation handler
+        task_text = update.message.text.strip()
+        if not task_text:
+            update.message.reply_text("Task text cannot be empty.")
+            return ConversationHandler.END
 
-    chat_id = update.message.chat_id
-    tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
-    ist, _, _ = get_time_details('Asia/Kolkata')  # Reusing the function from previous example
+        chat_id = update.message.chat_id
+        ist = pytz.timezone('Asia/Kolkata')
+        current_time = datetime.now(ist)
+        
+        # Set the reminder time to the end of the current day
+        end_of_day = datetime(current_time.year, current_time.month, current_time.day, 23, 59, 59, tzinfo=ist)
+        
+        task_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks").document()
+        task_ref.set({
+            "task": task_text,
+            "added": current_time,
+            "status": "pending",
+            "next_reminder_time": end_of_day
+        })
 
-    tasks = tasks_ref.stream()
+        # Invalidate cache for this chat_id
+        if chat_id in tasks_cache:
+            del tasks_cache[chat_id]
 
-    pending_task_list = []
-    complete_task_list = []
+        update.message.reply_text(f"General task added for today: {task_text}.")
+        return ConversationHandler.END
+    except Exception as e:
+        update.message.reply_text(f"An error occurred: {str(e)}")
+        return ConversationHandler.END
 
-    for task in tasks:
-        task_data = task.to_dict()
-        task_date_time = task_data['next_reminder_time'].astimezone(ist)
-        added_date_time = task_data['added'].astimezone(ist)
-
-        if task_date_time.date() == date_object:
-            task_entry = generate_task_entry(task_data, task_date_time, added_date_time)
-            if task_data['status'] == "pending":
-                pending_task_list.append(task_entry)
-            else:
-                complete_task_list.append(task_entry)
-
-    message_text = f"*Tasks for {date_str}:*\n"
-    message_text += generate_message_text("Pending Tasks", pending_task_list)
-    message_text += generate_message_text("Completed Tasks", complete_task_list)
-
-    update.message.reply_text(message_text, parse_mode='Markdown')
-    return ConversationHandler.END
-
-# Helper function to generate task entry
-def generate_task_entry(task_data, task_date_time, added_date_time):
-    formatted_date_time = task_date_time.strftime('%d-%m-%Y %I:%M %p')
-    revision_time = (task_date_time - added_date_time).days
-    return f"*{task_data['task']}* - Scheduled for: {formatted_date_time} - Revision Time: {revision_time} days"
-
-# Helper function to generate message text
-def generate_message_text(section_title, task_list):
-    if task_list:
-        return f"\n*{section_title}:*\n" + "\n".join(task_list) + "\n"
-    else:
-        return f"\n*{section_title}:*\nNone\n"
-
-@run_async
-def reminder_callback(context: CallbackContext):
-    job = context.job
-    task_ref = db.collection("tasks").document(str(job.context['chat_id'])).collection("user_tasks").document(job.context['task_ref'])
-    task_data = task_ref.get().to_dict()
-    
-    if task_data['status'] == 'complete':
-        send_completed_message(context, job, task_ref.id, task_data['task'])
-        return
-    
-    ist = pytz.timezone('Asia/Kolkata')
-    if datetime.now(ist).date() != task_data['next_reminder_time'].astimezone(ist).date():
-        return
-
-    send_pending_message(context, job, task_ref.id, task_data['task'])
-    context.job_queue.run_once(
-        reminder_callback,
-        30,  # Re-trigger reminder after 30 seconds if not marked complete
-        context=job.context  # Reuse existing context
-    )
-
-def send_completed_message(context, job, task_ref_id, task_text):
-    keyboard = [[InlineKeyboardButton("Completed Task ✅", callback_data=f"completed_{task_ref_id}")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.send_message(job.context['chat_id'], text=f"Reminder: {task_text}", reply_markup=reply_markup)
-
-def send_pending_message(context, job, task_ref_id, task_text):
-    keyboard = [[InlineKeyboardButton("Mark Complete", callback_data=f"complete_{task_ref_id}")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.send_message(job.context['chat_id'], text=f"Reminder: {task_text}", reply_markup=reply_markup)
-
-
-
-# Add this in your states dictionary for your ConversationHandler
-DATE = range(2, 3)  # Assuming you haven't used 2 as a state yet
 
 conv_handler = ConversationHandler(
-    entry_points=[CommandHandler('add', add_task),
-                  CommandHandler('date', ask_for_date)],  # Add this line
+    entry_points=[
+        CommandHandler('add', add_task),
+        CommandHandler('generaltask', add_general_task)  # Changed this line
+    ],
     states={
         TASK: [MessageHandler(Filters.text & ~Filters.command, set_reminder)],
-        DATE: [MessageHandler(Filters.text & ~Filters.command, show_date_tasks)],  # Add this line
+        GENERAL_TASK: [MessageHandler(Filters.text & ~Filters.command, set_general_task)]
     },
     fallbacks=[],
 )
 
+
+
 # Add handlers
 dispatcher.add_handler(CommandHandler('show', show_tasks))
-dispatcher.add_handler(conv_handler)
 dispatcher.add_handler(CallbackQueryHandler(button))
 dispatcher.add_handler(CommandHandler('status', status_command))
+dispatcher.add_handler(conv_handler)
 
 if __name__ == "__main__":
     t = Thread(target=run_flask_app)
