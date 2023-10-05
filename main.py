@@ -68,14 +68,12 @@ def show_tasks(update: Update, context: CallbackContext):
         return
 
     ist = pytz.timezone('Asia/Kolkata')
-    current_time = datetime.now().astimezone(ist)
-    print(current_time)
-    new_datetime = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
-    print(new_datetime)
     tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
     
     # Modify query to only select tasks for today
-    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", new_datetime).limit(10).stream()
+    today_morning = datetime.combine(datetime.now(ist).date(), time(0, 0)).astimezone(ist)
+    today_night = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
+    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", today_morning).where("next_reminder_time", "<", today_night).limit(15).stream()
 
     message_text = "*Pending Tasks for Today:*\n\n"
 
@@ -148,7 +146,6 @@ def button(update: Update, context: CallbackContext):
         action = action_data[0]
 
         ist = pytz.timezone('Asia/Kolkata')
-        current_time = datetime.now().astimezone(ist)
         chat_id = query.message.chat_id
         tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
 
@@ -158,7 +155,7 @@ def button(update: Update, context: CallbackContext):
                 tomorrow_date = datetime.now(ist).date() + timedelta(days=1)
                 tomorrow_morning= datetime.combine(tomorrow_date, time(0, 0)).astimezone(ist)
                 tomorrow_night= datetime.combine(tomorrow_date, time(23, 59)).astimezone(ist)
-                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", tomorrow_morning).where("next_reminder_time", "<", tomorrow_night).limit(10).stream()
+                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", tomorrow_morning).where("next_reminder_time", "<", tomorrow_night).limit(15).stream()
 
             elif query.data == "show_tasks_other":
                 query.edit_message_text("Please provide the date in DD:MM:YY format.")
@@ -166,8 +163,9 @@ def button(update: Update, context: CallbackContext):
                 return
 
             elif query.data == "show_tasks_today":
-                new_datetime = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
-                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", current_time).where("next_reminder_time", "<", new_datetime).limit(10).stream()
+                today_morning = datetime.combine(datetime.now(ist).date(), time(0, 0)).astimezone(ist)
+                today_night = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
+                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", today_morning).where("next_reminder_time", "<", today_night).limit(15).stream()
             
             message_text = "*Pending Tasks for Today:*\n\n"
             task_list = []
