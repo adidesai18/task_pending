@@ -44,8 +44,8 @@ db = firestore.client()
 updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
 dispatcher = updater.dispatcher
 
-# Initialize a simple cache for storing tasks
-tasks_cache = {}
+# # Initialize a simple cache for storing tasks
+# tasks_cache = {}
 
 # Constants for states in the conversation handler
 TASK, GENERAL_TASK = range(2)
@@ -53,19 +53,19 @@ TASK, GENERAL_TASK = range(2)
 @run_async
 def show_tasks(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
-    print(chat_id)
-    print(tasks_cache)
-    if chat_id in tasks_cache:
-        keyboard = [
-            [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
-            InlineKeyboardButton("Other", callback_data='show_tasks_other')]
-        ]
+    # print(chat_id)
+    # print(tasks_cache)
+    # if chat_id in tasks_cache:
+    #     keyboard = [
+    #         [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
+    #         InlineKeyboardButton("Other", callback_data='show_tasks_other')]
+    #     ]
 
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text(tasks_cache[chat_id], reply_markup=reply_markup, parse_mode='Markdown')
-        # Create InlineKeyboardButtons for "Tomorrow" and "Other"
+    #     reply_markup = InlineKeyboardMarkup(keyboard)
+    #     update.message.reply_text(tasks_cache[chat_id], reply_markup=reply_markup, parse_mode='Markdown')
+    #     # Create InlineKeyboardButtons for "Tomorrow" and "Other"
         
-        return
+    #     return
 
     ist = pytz.timezone('Asia/Kolkata')
     tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
@@ -94,8 +94,8 @@ def show_tasks(update: Update, context: CallbackContext):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    # Cache the result before sending it
-    tasks_cache[chat_id] = message_text
+    # # Cache the result before sending it
+    # tasks_cache[chat_id] = message_text
 
     update.message.reply_text(message_text, reply_markup=reply_markup, parse_mode='Markdown')
 
@@ -127,9 +127,9 @@ def set_reminder(update: Update, context: CallbackContext):
             })
         batch.commit()
         
-        # Invalidate cache for this chat_id
-        if chat_id in tasks_cache:
-            del tasks_cache[chat_id]
+        # # Invalidate cache for this chat_id
+        # if chat_id in tasks_cache:
+        #     del tasks_cache[chat_id]
         
         update.message.reply_text(f"Task added: {task_text}. Reminders set.")
         return ConversationHandler.END
@@ -197,9 +197,9 @@ def button(update: Update, context: CallbackContext):
             query.edit_message_reply_markup(reply_markup)
             query.edit_message_text(f"Task status set to {action}.")
 
-            # Invalidate cache for this chat_id
-            if chat_id in tasks_cache:
-                del tasks_cache[chat_id]
+            # # Invalidate cache for this chat_id
+            # if chat_id in tasks_cache:
+            #     del tasks_cache[chat_id]
         else:
             query.edit_message_text("Invalid action.")
 
@@ -234,9 +234,9 @@ def status_command(update: Update, context: CallbackContext):
         else:
             update.message.reply_text("No tasks for the next 24 hours.")
         
-        # Invalidate or update cache for this chat_id, if applicable
-        if chat_id in tasks_cache:
-            del tasks_cache[chat_id]
+        # # Invalidate or update cache for this chat_id, if applicable
+        # if chat_id in tasks_cache:
+        #     del tasks_cache[chat_id]
 
     except Exception as e:
         print("Hello")
@@ -277,9 +277,9 @@ def set_general_task(update: Update, context: CallbackContext):
             "next_reminder_time": end_of_day
         })
 
-        # Invalidate cache for this chat_id
-        if chat_id in tasks_cache:
-            del tasks_cache[chat_id]
+        # # Invalidate cache for this chat_id
+        # if chat_id in tasks_cache:
+        #     del tasks_cache[chat_id]
 
         update.message.reply_text(f"General task added for today: {task_text}.")
         return ConversationHandler.END
