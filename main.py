@@ -5,9 +5,8 @@ from datetime import timedelta, datetime,time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
 from telegram import Update
-import firebase_admin
-from firebase_admin import credentials, firestore
 import os
+from firebase_file import Firebase_Class
 import pytz  # For time zone conversion
 
 app = Flask(__name__)
@@ -21,24 +20,9 @@ def run_flask_app():
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
-cred_dict = {
-    "type": "service_account",
-    "project_id": os.environ.get("FIREBASE_PROJECT_ID"),
-    "private_key_id": os.environ.get("FIREBASE_PRIVATE_KEY_ID"),
-    "private_key": os.environ.get("FIREBASE_PRIVATE_KEY").replace('\\n', '\n'),
-    "client_email": os.environ.get("FIREBASE_CLIENT_EMAIL"),
-    "client_id": os.environ.get("FIREBASE_CLIENT_ID"),
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url":  os.environ.get("FIREBASE_CLIENT_CERT_URL"),
-    "universe_domain": "googleapis.com"
-}
-
 # Initialize Firestore
-cred = credentials.Certificate(cred_dict)
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+fire=Firebase_Class()
+
 
 # Initialize Telegram Bot
 updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
@@ -67,14 +51,7 @@ def show_tasks(update: Update, context: CallbackContext):
         
     #     return
 
-    ist = pytz.timezone('Asia/Kolkata')
-    tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
-    
-    # Modify query to only select tasks for today
-    today_morning = datetime.combine(datetime.now(ist).date(), time(0, 0)).astimezone(ist)
-    today_night = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
-    tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", today_morning).where("next_reminder_time", "<", today_night).limit(15).stream()
-
+    tasks=fire.get_day_data(chat_id,0,0,0,23,59)
     message_text = "*Pending Tasks for Today:*\n\n"
 
     task_list = []
@@ -115,10 +92,10 @@ def set_reminder(update: Update, context: CallbackContext):
         chat_id = update.message.chat_id
         print(chat_id)
         current_time = datetime.now(pytz.timezone('Asia/Kolkata'))
-        batch = db.batch()
+        batch = fire.ref_db().batch()
         for days in [1, 3, 7, 15, 30]:
             future_task_time = current_time + timedelta(days=days)
-            task_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks").document()
+            task_ref = fire.ref_user_tasks_db(chat_id).document()
             batch.set(task_ref, {
                 "task": task_text,
                 "added": current_time,
@@ -144,19 +121,13 @@ def button(update: Update, context: CallbackContext):
         query = update.callback_query
         action_data = query.data.split('_')
         action = action_data[0]
-
-        ist = pytz.timezone('Asia/Kolkata')
         chat_id = query.message.chat_id
-        tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
 
         if action in ["show","tasks", "tomorrow","other","today"]:
             tasks = None
             if query.data == "show_tasks_tomorrow":
                 message_text = "*Pending Tasks for Tomorrow:*\n\n"
-                tomorrow_date = datetime.now(ist).date() + timedelta(days=1)
-                tomorrow_morning= datetime.combine(tomorrow_date, time(0, 0)).astimezone(ist)
-                tomorrow_night= datetime.combine(tomorrow_date, time(23, 59)).astimezone(ist)
-                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", tomorrow_morning).where("next_reminder_time", "<", tomorrow_night).limit(15).stream()
+                tasks=fire.get_day_data(chat_id,1,0,0,23,59)
 
             elif query.data == "show_tasks_other":
                 query.edit_message_text("Please provide the date in DD:MM:YY format.")
@@ -165,9 +136,7 @@ def button(update: Update, context: CallbackContext):
 
             elif query.data == "show_tasks_today":
                 message_text = "*Pending Tasks for Today:*\n\n"
-                today_morning = datetime.combine(datetime.now(ist).date(), time(0, 0)).astimezone(ist)
-                today_night = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
-                tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", today_morning).where("next_reminder_time", "<", today_night).limit(15).stream()
+                tasks=fire.get_day_data(chat_id,0,0,0,23,59)
             
            
             task_list = []
@@ -189,7 +158,7 @@ def button(update: Update, context: CallbackContext):
 
         elif action in ["complete", "pending"]:
             task_ref_id = action_data[1]
-            task_ref = tasks_ref.document(task_ref_id)
+            task_ref = fire.ref_user_tasks_db(chat_id).document(task_ref_id)
             task_ref.update({"status": action})
             button_text = "Task Completed ✅" if action == "complete" else "Task Pending ⏳"
             new_keyboard = [[InlineKeyboardButton(button_text, callback_data=f"none_{task_ref_id}")]]
@@ -210,11 +179,7 @@ def button(update: Update, context: CallbackContext):
 def status_command(update: Update, context: CallbackContext):
     try:
         chat_id = update.message.chat_id
-        tasks_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks")
-        ist = pytz.timezone('Asia/Kolkata')
-        today_morning = datetime.combine(datetime.now(ist).date(), time(0, 0)).astimezone(ist)
-        today_night = datetime.combine(datetime.now(ist).date(), time(23, 59)).astimezone(ist)
-        tasks = tasks_ref.where("status", "==", "pending").where("next_reminder_time", ">=", today_morning).where("next_reminder_time", "<", today_night).limit(15).stream()
+        tasks=fire.get_day_data(chat_id,0,0,0,23,59)
         keyboard = []
         index = 1
 
@@ -242,13 +207,6 @@ def status_command(update: Update, context: CallbackContext):
         print("Hello")
         update.message.reply_text(f"An error occurred: {str(e)}")
 
-# Function to encapsulate time details
-def get_time_details(time_zone: str):
-    ist = pytz.timezone(time_zone)
-    current_time = datetime.now(ist)
-    future_time_limit = current_time + timedelta(hours=24)
-    return ist, current_time, future_time_limit
-
 @run_async
 def add_general_task(update: Update, context: CallbackContext):
     update.message.reply_text("Please enter the general task for today.")
@@ -269,7 +227,7 @@ def set_general_task(update: Update, context: CallbackContext):
         # Set the reminder time to the end of the current day
         end_of_day = datetime(current_time.year, current_time.month, current_time.day, 23, 59, 59, tzinfo=ist)
         
-        task_ref = db.collection("tasks").document(str(chat_id)).collection("user_tasks").document()
+        task_ref = fire.ref_user_tasks_db(chat_id).document()
         task_ref.set({
             "task": task_text,
             "added": current_time,
