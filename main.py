@@ -52,16 +52,29 @@ def show_tasks(update: Update, context: CallbackContext):
     #     return
 
     tasks=fire.get_day_data(chat_id,0,0,0,23,59)
-    message_text = "*Pending Tasks for Today:*\n\n"
-
-    task_list = []
+    message_text = "*General pending tasks for today:*\n\n"
+    pd_work={
+        'general_tasks':[],
+        'specific_tasks':[],
+    }
     for task in tasks:
         task_data = task.to_dict()
-        
+        if task_data['next_reminder_time']==fire.time_obj(23,59,0):
+            pd_work["specific_tasks"].append(f"*{task_data['task']}*")
+        else:
         # Only append the task name, omitting the schedule info
-        task_list.append(f"*{task_data['task']}*")
+            pd_work["general_tasks"].append(f"*{task_data['task']}*")
 
-    message_text += "\n".join(task_list) if task_list else "No pending tasks for today."
+    if pd_work["general_tasks"] or pd_work["specific_tasks"]:
+        message_text += "\n".join( pd_work["general_tasks"])
+        if pd_work["specific_tasks"]:
+            message_text+="\n\n*Specific pending tasks for today:*\n\n"
+            message_text += "\n".join( pd_work["specific_tasks"])
+        else:
+            message_text+="\n\nNo specific pending tasks for today"
+    else:
+        message_text="No pending tasks for today"
+    # message_text += "\n".join( pd_work["general_tasks"]) if  pd_work["general_tasks"] else "No pending tasks for today."
 
     # Create InlineKeyboardButtons for "Tomorrow" and "Other"
     keyboard = [
@@ -221,18 +234,13 @@ def set_general_task(update: Update, context: CallbackContext):
             return ConversationHandler.END
 
         chat_id = update.message.chat_id
-        ist = pytz.timezone('Asia/Kolkata')
-        current_time = datetime.now(ist)
-        
-        # Set the reminder time to the end of the current day
-        end_of_day = datetime(current_time.year, current_time.month, current_time.day, 23, 59, 59, tzinfo=ist)
         
         task_ref = fire.ref_user_tasks_db(chat_id).document()
         task_ref.set({
             "task": task_text,
-            "added": current_time,
+            "added": fire.crn_dt_obj(),
             "status": "pending",
-            "next_reminder_time": end_of_day
+            "next_reminder_time": fire.time_obj(23,59,0)
         })
 
         # # Invalidate cache for this chat_id

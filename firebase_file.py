@@ -17,6 +17,7 @@ cred_dict = {
     "client_x509_cert_url":  os.environ.get("FIREBASE_CLIENT_CERT_URL"),
     "universe_domain": "googleapis.com"
 }
+ist = pytz.timezone('Asia/Kolkata')
 
 class Firebase_Class:
     # Initialize the attributes
@@ -32,11 +33,13 @@ class Firebase_Class:
         return self.db.collection("tasks").document(str(chat_id)).collection("user_tasks")
 
     def get_day_data(self,chat_id,increment_days,hour_1,minute_1,hour_2,minute_2):
-        tasks = self.ref_user_tasks_db(chat_id).where("status", "==", "pending").where("next_reminder_time", ">=", self.time_obj(hour_1,minute_1,increment_days)).where("next_reminder_time", "<", self.time_obj(hour_2,minute_2,increment_days)).limit(15).stream()
+        tasks = self.ref_user_tasks_db(chat_id).where("status", "==", "pending").where("next_reminder_time", ">=", self.time_obj(hour_1,minute_1,increment_days)).where("next_reminder_time", "<=", self.time_obj(hour_2,minute_2,increment_days)).limit(15).stream()
         return tasks
         
 
     def time_obj(self,t1,t2,d):
-        ist = pytz.timezone('Asia/Kolkata')
         dt_obj = datetime.combine(datetime.now(ist).date() + timedelta(days=d), time(t1, t2)).astimezone(ist)
         return dt_obj
+    
+    def crn_dt_obj(self):
+        return datetime.now(ist)
