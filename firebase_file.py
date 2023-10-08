@@ -36,7 +36,6 @@ class Firebase_Class:
         tasks = self.ref_user_tasks_db(chat_id).where("status", "==", "pending").where("next_reminder_time", ">=", self.time_obj(hour_1,minute_1,increment_days)).where("next_reminder_time", "<=", self.time_obj(hour_2,minute_2,increment_days)).limit(15).stream()
         return tasks
         
-
     def time_obj(self,t1,t2,d):
         dt_obj = datetime.combine(datetime.now(ist).date() + timedelta(days=d), time(t1, t2)).astimezone(ist)
         return dt_obj

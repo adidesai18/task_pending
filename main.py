@@ -59,11 +59,11 @@ def show_tasks(update: Update, context: CallbackContext):
     }
     for task in tasks:
         task_data = task.to_dict()
-        if task_data['next_reminder_time']==fire.time_obj(23,59,0):
-            pd_work["specific_tasks"].append(f"*{task_data['task']}*")
+        if 'category' in task_data and task_data['category']=="specific":
+            pd_work["specific_tasks"].append(f"{task_data['task']}")
         else:
         # Only append the task name, omitting the schedule info
-            pd_work["general_tasks"].append(f"*{task_data['task']}*")
+            pd_work["general_tasks"].append(f"{task_data['task']}")
 
     if pd_work["general_tasks"] or pd_work["specific_tasks"]:
         message_text += "\n".join( pd_work["general_tasks"])
@@ -240,6 +240,7 @@ def set_general_task(update: Update, context: CallbackContext):
             "task": task_text,
             "added": fire.crn_dt_obj(),
             "status": "pending",
+            "category":"specific",
             "next_reminder_time": fire.time_obj(23,59,0)
         })
 
