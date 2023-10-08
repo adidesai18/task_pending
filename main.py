@@ -136,10 +136,34 @@ def button(update: Update, context: CallbackContext):
         action = action_data[0]
         chat_id = query.message.chat_id
 
+        # ----------------
+        for task in tasks:
+            task_data = task.to_dict()
+            if 'category' in task_data and task_data['category']=="specific":
+                pd_work["specific_tasks"].append(f"{task_data['task']}")
+            else:
+                pd_work["general_tasks"].append(f"{task_data['task']}")
+
+        if pd_work["general_tasks"] or pd_work["specific_tasks"]:
+            message_text += "\n".join( pd_work["general_tasks"])
+            if pd_work["specific_tasks"]:
+                message_text+="\n\n*Specific pending tasks for today:*\n\n"
+                message_text += "\n".join( pd_work["specific_tasks"])
+            else:
+                message_text+="\n\nNo specific pending tasks for today"
+        else:
+            message_text="No pending tasks for today"
+
+        # ----------------
+
         if action in ["show","tasks", "tomorrow","other","today"]:
             tasks = None
+            pd_work={
+                'general_tasks':[],
+                'specific_tasks':[],
+                }
             if query.data == "show_tasks_tomorrow":
-                message_text = "*Pending Tasks for Tomorrow:*\n\n"
+                message_text ="*General pending tasks for tomorrow:*\n\n"
                 tasks=fire.get_day_data(chat_id,1,0,0,23,59)
 
             elif query.data == "show_tasks_other":
@@ -148,16 +172,32 @@ def button(update: Update, context: CallbackContext):
                 return
 
             elif query.data == "show_tasks_today":
-                message_text = "*Pending Tasks for Today:*\n\n"
+                message_text = "*General pending tasks for today:*\n\n"
                 tasks=fire.get_day_data(chat_id,0,0,0,23,59)
             
            
-            task_list = []
             for task in tasks:
                 task_data = task.to_dict()
-                task_list.append(f"*{task_data['task']}*")
+                if 'category' in task_data and task_data['category']=="specific":
+                    pd_work["specific_tasks"].append(f"{task_data['task']}")
+                else:
+                    pd_work["general_tasks"].append(f"{task_data['task']}")
 
-            message_text += "\n".join(task_list) if task_list else "No pending tasks for today."
+            if pd_work["general_tasks"] or pd_work["specific_tasks"]:
+                message_text += "\n".join( pd_work["general_tasks"])
+                if pd_work["specific_tasks"]:
+                    message_text+="\n\n*Specific pending tasks for today:*\n\n"
+                    message_text += "\n".join( pd_work["specific_tasks"])
+                else:
+                    if query.data == "show_tasks_today":
+                        message_text+="\n\n*No specific pending tasks for today*"
+                    else:
+                        message_text+="\n\n*No specific pending tasks for tomorrow*"
+            else:
+                if query.data == "show_tasks_today":
+                    message_text="*No pending tasks for today*"
+                else:
+                    message_text="*No pending tasks for tomorrow*"
 
             keyboard = [
                 [InlineKeyboardButton("Today", callback_data='show_tasks_today') 
