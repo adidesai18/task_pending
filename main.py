@@ -136,26 +136,6 @@ def button(update: Update, context: CallbackContext):
         action = action_data[0]
         chat_id = query.message.chat_id
 
-        # ----------------
-        for task in tasks:
-            task_data = task.to_dict()
-            if 'category' in task_data and task_data['category']=="specific":
-                pd_work["specific_tasks"].append(f"{task_data['task']}")
-            else:
-                pd_work["general_tasks"].append(f"{task_data['task']}")
-
-        if pd_work["general_tasks"] or pd_work["specific_tasks"]:
-            message_text += "\n".join( pd_work["general_tasks"])
-            if pd_work["specific_tasks"]:
-                message_text+="\n\n*Specific pending tasks for today:*\n\n"
-                message_text += "\n".join( pd_work["specific_tasks"])
-            else:
-                message_text+="\n\nNo specific pending tasks for today"
-        else:
-            message_text="No pending tasks for today"
-
-        # ----------------
-
         if action in ["show","tasks", "tomorrow","other","today"]:
             tasks = None
             pd_work={
