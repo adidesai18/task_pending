@@ -158,7 +158,7 @@ def button(update: Update, context: CallbackContext):
                 if 'category' in task_data and task_data['category']=="specific":
                     pd_work["specific_tasks"].append(f"{task_data['task']}")
                 else:
-                    task_text=f"{task_data['task']}"+f" {(fire.convt_gdt_sdt(task_data['next_reminder_time'])-fire.convt_gdt_sdt(task_data['added'])).days}"
+                    task_text=f"{task_data['task']}"+f" ({(fire.convt_gdt_sdt(task_data['next_reminder_time'])-fire.convt_gdt_sdt(task_data['added'])).days})"
                     pd_work["general_tasks"].append(f"{task_text}")
 
             if pd_work["general_tasks"] or pd_work["specific_tasks"]:
