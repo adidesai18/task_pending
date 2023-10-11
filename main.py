@@ -1,7 +1,6 @@
 from flask import Flask
 from threading import Thread
 from telegram.ext import run_async
-from datetime import timedelta, datetime,time
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
 from telegram import Update
@@ -62,8 +61,8 @@ def show_tasks(update: Update, context: CallbackContext):
         if 'category' in task_data and task_data['category']=="specific":
             pd_work["specific_tasks"].append(f"{task_data['task']}")
         else:
-        # Only append the task name, omitting the schedule info
-            pd_work["general_tasks"].append(f"{task_data['task']}")
+            task_text=f"{task_data['task']}"+f" ({(fire.convt_gdt_sdt(task_data['next_reminder_time'])-fire.convt_gdt_sdt(task_data['added'])).days})"
+            pd_work["general_tasks"].append(f"{task_text}")
 
     if pd_work["general_tasks"] or pd_work["specific_tasks"]:
         message_text += "\n".join( pd_work["general_tasks"])
@@ -103,17 +102,15 @@ def set_reminder(update: Update, context: CallbackContext):
             update.message.reply_text("Task text cannot be empty.")
             return ConversationHandler.END
         chat_id = update.message.chat_id
-        print(chat_id)
-        current_time = datetime.now(pytz.timezone('Asia/Kolkata'))
         batch = fire.ref_db().batch()
         for days in [1, 3, 7, 15, 30]:
-            future_task_time = current_time + timedelta(days=days)
             task_ref = fire.ref_user_tasks_db(chat_id).document()
             batch.set(task_ref, {
                 "task": task_text,
-                "added": current_time,
+                "added": fire.crn_dt_obj(),
+                "category":'general',
                 "status": "pending",
-                "next_reminder_time": future_task_time
+                "next_reminder_time": fire.time_obj(fire.crn_dt_obj().hour,fire.crn_dt_obj().minute,days)
             })
         batch.commit()
         
@@ -161,7 +158,8 @@ def button(update: Update, context: CallbackContext):
                 if 'category' in task_data and task_data['category']=="specific":
                     pd_work["specific_tasks"].append(f"{task_data['task']}")
                 else:
-                    pd_work["general_tasks"].append(f"{task_data['task']}")
+                    task_text=f"{task_data['task']}"+f" {(fire.convt_gdt_sdt(task_data['next_reminder_time'])-fire.convt_gdt_sdt(task_data['added'])).days}"
+                    pd_work["general_tasks"].append(f"{task_text}")
 
             if pd_work["general_tasks"] or pd_work["specific_tasks"]:
                 message_text += "\n".join( pd_work["general_tasks"])

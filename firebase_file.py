@@ -40,5 +40,21 @@ class Firebase_Class:
         dt_obj = datetime.combine(datetime.now(ist).date() + timedelta(days=d), time(t1, t2)).astimezone(ist)
         return dt_obj
     
+    def convt_gdt_sdt(self,google_datetime):
+        dt_standard = datetime.fromtimestamp(google_datetime.timestamp()).replace(tzinfo=google_datetime.tzinfo)
+        return dt_standard
+    
     def crn_dt_obj(self):
+        '''Convert Google DateTime to Standard DateTime'''
         return datetime.now(ist)
+    
+    def day_spec_fb_data(self,id,inc):
+        return self.get_day_data(id,inc,0,0,23,59)
+    
+    # for x in tasks_cache["P_tasks"]:
+    #     task: TaskData = x
+    #     if task.task_category()!=None and task.task_category()=="specific":
+    #         pd_work["specific_tasks"].append(f"{task.task_title()}")
+    #     else:
+    #         text=f"{task.task_title()}"+f" ({fire.convt_gdt_sdt(task.task_remind_data()).day-fire.convt_gdt_sdt(task.task_created_date()).day})"
+    #         pd_work["general_tasks"].append(text)
