@@ -49,7 +49,6 @@ def show_tasks(update: Update, context: CallbackContext):
         message_text += "\n".join(pending_task_list)
     else:
         message_text="No pending tasks for today"
-
     # Create InlineKeyboardButtons for "Tomorrow" and "Other"
     keyboard = [
         [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
