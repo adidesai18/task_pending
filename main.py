@@ -54,7 +54,6 @@ def show_tasks(update: Update, context: CallbackContext):
         [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
          InlineKeyboardButton("Other", callback_data='show_tasks_other')]
     ]
-
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     # # Cache the result before sending it
