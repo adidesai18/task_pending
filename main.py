@@ -43,7 +43,7 @@ def show_tasks(update: Update, context: CallbackContext):
         if 'category' in task_data and task_data['category']=="specific":
             pending_task_list.append(f"{task_data['task']}")
         else:
-            task_text=f"{task_data['task']}"+f" ({(fire.convt_gdt_sdt(task_data['next_reminder_time'])-fire.convt_gdt_sdt(task_data['added'])).days})"
+            task_text=f"{task_data['task']}"+f" ({fire.days_diff(task_data['next_reminder_time'],task_data['added'])})"
             pending_task_list.append(f"{task_text}")
     if pending_task_list:
         message_text += "\n".join(pending_task_list)
@@ -77,7 +77,7 @@ def set_reminder(update: Update, context: CallbackContext):
             return ConversationHandler.END
         chat_id = update.message.chat_id
         batch = fire.ref_db().batch()
-        for days in [1, 3, 7, 15, 30]:
+        for days in [0, 3, 7, 15, 30]:
             task_ref = fire.ref_user_tasks_db(chat_id).document()
             batch.set(task_ref, {
                 "task": task_text,
@@ -108,43 +108,28 @@ def button(update: Update, context: CallbackContext):
         chat_id = query.message.chat_id
 
         if action in ["show","tasks", "tomorrow","other","today"]:
-            tasks = None
-            pd_work={
-                'general_tasks':[],
-                'specific_tasks':[],
-                }
+            pending_task_list=[]
+            day='today'
             if query.data == "show_tasks_tomorrow":
-                message_text ="*General pending tasks for tomorrow:*\n\n"
+                day='tomorrow'
                 tasks=fire.get_day_data(chat_id,1,0,0,23,59)
 
             elif query.data == "show_tasks_other":
                 query.edit_message_text("Please provide the date in DD:MM:YY format.")
-                # Further code needed to handle user response and show tasks for that date
                 return
-
             elif query.data == "show_tasks_today":
-                message_text = "*General pending tasks for today:*\n\n"
                 tasks=fire.get_day_data(chat_id,0,0,0,23,59)
-            
-           
+            message_text = f"*Pending tasks for {day}:*\n\n"
             for task in tasks:
                 task_data = task.to_dict()
                 if 'category' in task_data and task_data['category']=="specific":
-                    pd_work["specific_tasks"].append(f"{task_data['task']}")
+                    pending_task_list.append(f"{task_data['task']}")
                 else:
-                    task_text=f"{task_data['task']}"+f" ({(fire.convt_gdt_sdt(task_data['next_reminder_time'])-fire.convt_gdt_sdt(task_data['added'])).days})"
-                    pd_work["general_tasks"].append(f"{task_text}")
+                    task_text=f"{task_data['task']}"+f" ({fire.days_diff(task_data['next_reminder_time'],task_data['added'])})"
+                    pending_task_list.append(f"{task_text}")
 
-            if pd_work["general_tasks"] or pd_work["specific_tasks"]:
-                message_text += "\n".join( pd_work["general_tasks"])
-                if pd_work["specific_tasks"]:
-                    message_text+="\n\n*Specific pending tasks for today:*\n\n"
-                    message_text += "\n".join( pd_work["specific_tasks"])
-                else:
-                    if query.data == "show_tasks_today":
-                        message_text+="\n\n*No specific pending tasks for today*"
-                    else:
-                        message_text+="\n\n*No specific pending tasks for tomorrow*"
+            if pending_task_list:
+                message_text += "\n".join(pending_task_list)
             else:
                 if query.data == "show_tasks_today":
                     message_text="*No pending tasks for today*"
