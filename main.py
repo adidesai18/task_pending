@@ -6,7 +6,6 @@ from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQuery
 from telegram import Update
 import os
 from firebase_file import Firebase_Class
-import pytz  # For time zone conversion
 
 app = Flask(__name__)
 
@@ -36,44 +35,20 @@ TASK, GENERAL_TASK = range(2)
 @run_async
 def show_tasks(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
-    # print(chat_id)
-    # print(tasks_cache)
-    # if chat_id in tasks_cache:
-    #     keyboard = [
-    #         [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
-    #         InlineKeyboardButton("Other", callback_data='show_tasks_other')]
-    #     ]
-
-    #     reply_markup = InlineKeyboardMarkup(keyboard)
-    #     update.message.reply_text(tasks_cache[chat_id], reply_markup=reply_markup, parse_mode='Markdown')
-    #     # Create InlineKeyboardButtons for "Tomorrow" and "Other"
-        
-    #     return
-
     tasks=fire.get_day_data(chat_id,0,0,0,23,59)
-    message_text = "*General pending tasks for today:*\n\n"
-    pd_work={
-        'general_tasks':[],
-        'specific_tasks':[],
-    }
+    message_text = "*Pending tasks for today:*\n\n"
+    pending_task_list=[]
     for task in tasks:
         task_data = task.to_dict()
         if 'category' in task_data and task_data['category']=="specific":
-            pd_work["specific_tasks"].append(f"{task_data['task']}")
+            pending_task_list.append(f"{task_data['task']}")
         else:
             task_text=f"{task_data['task']}"+f" ({(fire.convt_gdt_sdt(task_data['next_reminder_time'])-fire.convt_gdt_sdt(task_data['added'])).days})"
-            pd_work["general_tasks"].append(f"{task_text}")
-
-    if pd_work["general_tasks"] or pd_work["specific_tasks"]:
-        message_text += "\n".join( pd_work["general_tasks"])
-        if pd_work["specific_tasks"]:
-            message_text+="\n\n*Specific pending tasks for today:*\n\n"
-            message_text += "\n".join( pd_work["specific_tasks"])
-        else:
-            message_text+="\n\nNo specific pending tasks for today"
+            pending_task_list.append(f"{task_text}")
+    if pending_task_list:
+        message_text += "\n".join(pending_task_list)
     else:
         message_text="No pending tasks for today"
-    # message_text += "\n".join( pd_work["general_tasks"]) if  pd_work["general_tasks"] else "No pending tasks for today."
 
     # Create InlineKeyboardButtons for "Tomorrow" and "Other"
     keyboard = [
