@@ -6,9 +6,9 @@ from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQuery
 from telegram import Update
 import os
 from firebase_file import Firebase_Class
-from time import sleep
+import logging
+from time import sleep, time
 import requests
-from threading import Thread
 
 app = Flask(__name__)
 
@@ -35,14 +35,23 @@ dispatcher = updater.dispatcher
 # Constants for states in the conversation handler
 TASK, GENERAL_TASK = range(2)
 
-def check_health():
+logging.basicConfig(level=logging.INFO)
+def check_health(url="http://localhost:8080/health", interval=60):
     while True:
-        response = requests.get("http://localhost:8080/health")
-        if response.status_code == 200:
-            print("Health check OK")
-        else:
-            print("Health check failed")
-        sleep(60)  # Sleep for 3 minutes (180 seconds)
+        try:
+            start_time = time()
+            response = requests.get(url, timeout=5)  # Added timeout
+            elapsed_time = time() - start_time
+            
+            if response.status_code == 200:
+                logging.info(f"Health check OK. Response time: {elapsed_time:.2f} seconds")
+            else:
+                logging.warning(f"Health check failed. Status Code: {response.status_code}")
+        
+        except requests.RequestException as e:
+            logging.error(f"An error occurred during the health check: {str(e)}")
+        
+        sleep(interval)
 
 
 @run_async
@@ -263,9 +272,7 @@ if __name__ == "__main__":
     flask_thread = Thread(target=run_flask_app)
     flask_thread.start()
 
-    # Start health check in a separate thread
-    health_check_thread = Thread(target=check_health)
-    health_check_thread.start()
+    check_health()
 
     # Start the Telegram bot
     updater.start_polling()
