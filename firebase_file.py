@@ -51,8 +51,14 @@ class Firebase_Class:
     def day_spec_fb_data(self,id,inc):
         return self.get_day_data(id,inc,0,0,23,59)
     
-    def days_diff(self,t1,t2):
-        diff_mapping = {-1: 1, 2: 2, 6: 3, 14: 4, 29: 5}
+    def days_diff(self, t1, t2):
         diff = int((self.convt_gdt_sdt(t1) - self.convt_gdt_sdt(t2)).days)
-        print(diff)
-        return diff_mapping.get(diff)
+        special_cases = {
+            0: 1,
+            -1: 1,
+            2: 2,
+            6: 3,
+            14: 4,
+            29: 5
+        }
+        return special_cases.get(diff, diff)
