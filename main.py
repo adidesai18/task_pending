@@ -40,12 +40,11 @@ def show_tasks(update: Update, context: CallbackContext):
     pending_task_list=[]
     for task in tasks:
         task_data = task.to_dict()
-        print(task_data)
-        if 'category' in task_data and task_data['category']=="specific":
-            pending_task_list.append(f"{task_data['task']}")
-        else:
+        if 'category' in task_data and task_data['category']=="general":
             task_text=f"{task_data['task']}"+f" ({fire.days_diff(task_data['next_reminder_time'],task_data['added'])})"
             pending_task_list.append(f"*{task_text}*")
+        else:
+            pending_task_list.append(f"{task_data['task']}")
     if pending_task_list:
         message_text += "\n".join(pending_task_list)
     else:
