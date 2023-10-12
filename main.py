@@ -44,7 +44,7 @@ def show_tasks(update: Update, context: CallbackContext):
             pending_task_list.append(f"{task_data['task']}")
         else:
             task_text=f"{task_data['task']}"+f" ({fire.days_diff(task_data['next_reminder_time'],task_data['added'])})"
-            pending_task_list.append(f"{task_text}")
+            pending_task_list.append(f"*{task_text}*")
     if pending_task_list:
         message_text += "\n".join(pending_task_list)
     else:
@@ -58,10 +58,8 @@ def show_tasks(update: Update, context: CallbackContext):
     
     # # Cache the result before sending it
     # tasks_cache[chat_id] = message_text
-
     update.message.reply_text(message_text, reply_markup=reply_markup, parse_mode='Markdown')
 
-# Function to add a task
 @run_async
 def add_task(update: Update, context: CallbackContext):
     update.message.reply_text("Please enter the task to be reminded of.")
