@@ -54,4 +54,5 @@ class Firebase_Class:
     def days_diff(self,t1,t2):
         diff_mapping = {-1: 1, 2: 2, 6: 3, 14: 4, 29: 5}
         diff = int((self.convt_gdt_sdt(t1) - self.convt_gdt_sdt(t2)).days)
+        print(diff)
         return diff_mapping.get(diff)
