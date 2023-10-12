@@ -40,6 +40,7 @@ def show_tasks(update: Update, context: CallbackContext):
     pending_task_list=[]
     for task in tasks:
         task_data = task.to_dict()
+        print(task_data)
         if 'category' in task_data and task_data['category']=="specific":
             pending_task_list.append(f"{task_data['task']}")
         else:
