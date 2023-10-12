@@ -97,7 +97,6 @@ def set_reminder(update: Update, context: CallbackContext):
                 "next_reminder_time": fire.time_obj(fire.crn_dt_obj().hour,fire.crn_dt_obj().minute,days)
             })
         batch.commit()
-        
         # # Invalidate cache for this chat_id
         # if chat_id in tasks_cache:
         #     del tasks_cache[chat_id]
