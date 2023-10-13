@@ -1,7 +1,7 @@
 from flask import Flask
 from threading import Thread
 from telegram.ext import run_async
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup,ParseMode
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters
 from telegram import Update
 import os
@@ -51,18 +51,7 @@ def show_tasks(update: Update, context: CallbackContext):
     tasks=fire.get_day_data(chat_id,0,0,0,23,59)
     message_text = "*Pending tasks for today:*\n\n"
     pending_task_list=[]
-    for task in tasks:
-        task_data = task.to_dict()
-        if 'category' in task_data and task_data['category']=="general":
-            task_text=f"{task_data['task']}"+f" ({fire.days_diff(task_data['next_reminder_time'],task_data['added'])})"
-            pending_task_list.append(f"*{task_text}*")
-        else:
-            pending_task_list.append(f"{task_data['task']}")
-    if pending_task_list:
-        message_text += "\n".join(pending_task_list)
-    else:
-        message_text="No pending tasks for today"
-    # Create InlineKeyboardButtons for "Tomorrow" and "Other"
+    dislap_text=fire.get_display_text(tasks,pending_task_list,message_text)
     keyboard = [
         [InlineKeyboardButton("Tomorrow", callback_data='show_tasks_tomorrow'),
          InlineKeyboardButton("Other", callback_data='show_tasks_other')]
@@ -71,7 +60,7 @@ def show_tasks(update: Update, context: CallbackContext):
     
     # # Cache the result before sending it
     # tasks_cache[chat_id] = message_text
-    update.message.reply_text(message_text, reply_markup=reply_markup, parse_mode='Markdown')
+    update.message.reply_text(dislap_text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
 
 @run_async
 def add_task(update: Update, context: CallbackContext):
@@ -129,22 +118,7 @@ def button(update: Update, context: CallbackContext):
             elif query.data == "show_tasks_today":
                 tasks=fire.get_day_data(chat_id,0,0,0,23,59)
             message_text = f"*Pending tasks for {day}:*\n\n"
-            for task in tasks:
-                task_data = task.to_dict()
-                if 'category' in task_data and task_data['category']=="specific":
-                    pending_task_list.append(f"{task_data['task']}")
-                else:
-                    task_text=f"{task_data['task']}"+f" ({fire.days_diff(task_data['next_reminder_time'],task_data['added'])})"
-                    pending_task_list.append(f"{task_text}")
-
-            if pending_task_list:
-                message_text += "\n".join(pending_task_list)
-            else:
-                if query.data == "show_tasks_today":
-                    message_text="*No pending tasks for today*"
-                else:
-                    message_text="*No pending tasks for tomorrow*"
-
+            dislap_text=fire.get_display_text(tasks,pending_task_list,message_text)
             keyboard = [
                 [InlineKeyboardButton("Today", callback_data='show_tasks_today') 
                  if query.data == "show_tasks_tomorrow" 
@@ -153,7 +127,7 @@ def button(update: Update, context: CallbackContext):
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
-            query.edit_message_text(message_text, reply_markup=reply_markup, parse_mode='Markdown')
+            query.edit_message_text(dislap_text, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN_V2)
 
         elif action in ["complete", "pending"]:
             task_ref_id = action_data[1]

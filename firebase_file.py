@@ -1,6 +1,7 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import timedelta, datetime,time
+from google.api_core.datetime_helpers import DatetimeWithNanoseconds
 import pytz
 import os
 
@@ -33,15 +34,52 @@ class Firebase_Class:
         return self.db.collection("tasks").document(str(chat_id)).collection("user_tasks")
 
     def get_day_data(self,chat_id,increment_days,hour_1,minute_1,hour_2,minute_2):
-        tasks = self.ref_user_tasks_db(chat_id).where("status", "==", "pending").where("next_reminder_time", ">=", self.time_obj(hour_1,minute_1,increment_days)).where("next_reminder_time", "<=", self.time_obj(hour_2,minute_2,increment_days)).limit(15).stream()
+        tasks = self.ref_user_tasks_db(chat_id).where("next_reminder_time", ">=", self.time_obj(hour_1,minute_1,increment_days)).where("next_reminder_time", "<=", self.time_obj(hour_2,minute_2,increment_days)).limit(15).stream()
         return tasks
+    
+    def escape_markdown_v2(self,text: str) -> str:
+        escape_chars = r'_*[]()~`>#+-=|{}.!'
+        return ''.join('\\' + char if char in escape_chars else char for char in text)
+    
+    
+    
+    def get_display_text(self,tasks,empty_list:list,message_text:str):
+        for task in tasks:
+            task_data = task.to_dict()
+            if 'category' in task_data and task_data['category']=="general":
+                task_text = self.escape_markdown_v2(f"{task_data['task']} ({self.days_diff(task_data['next_reminder_time'],task_data['added'])})")
+                if task_data['status']=="complete":
+                    print("~{task_text}~")
+                    empty_list.append(f"~{task_text}~")
+                else:
+                    empty_list.append(f"{task_text}")
+            else:
+                task_simple_text = f"{task_data['task']}"
+                if task_data['status']=="complete":
+                    empty_list.append(f"~{task_simple_text}~")
+                else:
+                    empty_list.append(f"{task_simple_text}")
+        if empty_list:
+            message_text += "\n".join(empty_list)
+        else:
+            message_text="No pending tasks for today"
+        return message_text
+    
+    def convert_to_google_datetime(self,standard_dt: datetime) -> DatetimeWithNanoseconds:
+        return DatetimeWithNanoseconds(
+            standard_dt.year, standard_dt.month, standard_dt.day,
+            standard_dt.hour, standard_dt.minute, standard_dt.second,
+            standard_dt.microsecond, tzinfo=standard_dt.tzinfo
+        )
         
-    def time_obj(self,t1,t2,d):
+    def time_obj(self,t1,t2,d)->datetime:
         dt_obj = datetime.combine(datetime.now(ist).date() + timedelta(days=d), time(t1, t2)).astimezone(ist)
-        return dt_obj
+        return self.convert_to_google_datetime(dt_obj)
     
     def convt_gdt_sdt(self,google_datetime):
+        # google.api_core.datetime_helpers.DatetimeWithNanoseconds
         dt_standard = datetime.fromtimestamp(google_datetime.timestamp()).replace(tzinfo=google_datetime.tzinfo)
+        # datetime.datetime
         return dt_standard
     
     def crn_dt_obj(self):
