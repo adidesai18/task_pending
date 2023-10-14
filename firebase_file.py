@@ -49,16 +49,15 @@ class Firebase_Class:
             if 'category' in task_data and task_data['category']=="general":
                 task_text = self.escape_markdown_v2(f"{task_data['task']} ({self.days_diff(task_data['next_reminder_time'],task_data['added'])})")
                 if task_data['status']=="complete":
-                    print("~{task_text}~")
-                    empty_list.append(f"~{task_text}~")
+                    empty_list.insert(len(empty_list),f"~{task_text}~")
                 else:
-                    empty_list.append(f"{task_text}")
+                    empty_list.insert(0,f"{task_text}")
             else:
                 task_simple_text = f"{task_data['task']}"
                 if task_data['status']=="complete":
-                    empty_list.append(f"~{task_simple_text}~")
+                    empty_list.insert(len(empty_list),f"~{task_simple_text}~")
                 else:
-                    empty_list.append(f"{task_simple_text}")
+                    empty_list.insert(0,f"{task_simple_text}")
         if empty_list:
             message_text += "\n".join(empty_list)
         else:
