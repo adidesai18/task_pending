@@ -72,7 +72,7 @@ class Firebase_Class:
             standard_dt.microsecond, tzinfo=standard_dt.tzinfo
         )
         
-    def time_obj(self,t1,t2,d)->datetime:
+    def time_obj(self,t1,t2,d):
         dt_obj = datetime.combine(datetime.now(ist).date() + timedelta(days=d), time(t1, t2)).astimezone(ist)
         return self.convert_to_google_datetime(dt_obj)
     
@@ -90,7 +90,7 @@ class Firebase_Class:
         return self.get_day_data(id,inc,0,0,23,59)
     
     def days_diff(self, t1, t2):
-        diff = int((self.convt_gdt_sdt(t1) - self.convt_gdt_sdt(t2)).days)
+        diff = int((self.convt_gdt_sdt(t1).day - self.convt_gdt_sdt(t2).day))
         special_cases = {
             0: 1,
             -1: 1,
