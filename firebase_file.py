@@ -94,7 +94,7 @@ class Firebase_Class:
         special_cases = {
             0: 1,
             -1: 1,
-            2: 2,
+            3: 2,
             6: 3,
             14: 4,
             29: 5
