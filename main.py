@@ -48,7 +48,7 @@ def check_health():
 @run_async
 def show_tasks(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
-    tasks=fire.get_day_data(chat_id,0,0,0,23,59)
+    tasks=fire.all_tasks(chat_id,0,0,0,23,59)
     message_text = "*Pending tasks for today:*\n\n"
     pending_task_list=[]
     dislap_text=fire.get_display_text(tasks,pending_task_list,message_text)
@@ -110,13 +110,13 @@ def button(update: Update, context: CallbackContext):
             day='today'
             if query.data == "show_tasks_tomorrow":
                 day='tomorrow'
-                tasks=fire.get_day_data(chat_id,1,0,0,23,59)
+                tasks=fire.all_tasks(chat_id,1,0,0,23,59)
 
             elif query.data == "show_tasks_other":
                 query.edit_message_text("Please provide the date in DD:MM:YY format.")
                 return
             elif query.data == "show_tasks_today":
-                tasks=fire.get_day_data(chat_id,0,0,0,23,59)
+                tasks=fire.all_tasks(chat_id,0,0,0,23,59)
             message_text = f"*Pending tasks for {day}:*\n\n"
             dislap_text=fire.get_display_text(tasks,pending_task_list,message_text)
             keyboard = [
@@ -152,7 +152,7 @@ def button(update: Update, context: CallbackContext):
 def status_command(update: Update, context: CallbackContext):
     try:
         chat_id = update.message.chat_id
-        tasks=fire.get_day_data(chat_id,0,0,0,23,59)
+        tasks=fire.pending_task(chat_id,0,0,0,23,59)
         keyboard = []
         index = 1
 

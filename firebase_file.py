@@ -33,8 +33,12 @@ class Firebase_Class:
     def ref_user_tasks_db(self,chat_id):
         return self.db.collection("tasks").document(str(chat_id)).collection("user_tasks")
 
-    def get_day_data(self,chat_id,increment_days,hour_1,minute_1,hour_2,minute_2):
+    def all_tasks(self,chat_id,increment_days,hour_1,minute_1,hour_2,minute_2):
         tasks = self.ref_user_tasks_db(chat_id).where("next_reminder_time", ">=", self.time_obj(hour_1,minute_1,increment_days)).where("next_reminder_time", "<=", self.time_obj(hour_2,minute_2,increment_days)).limit(15).stream()
+        return tasks
+    
+    def pending_task(self,chat_id,increment_days,hour_1,minute_1,hour_2,minute_2):
+        tasks = self.ref_user_tasks_db(chat_id).where("next_reminder_time", ">=", self.time_obj(hour_1,minute_1,increment_days)).where("next_reminder_time", "<=", self.time_obj(hour_2,minute_2,increment_days)).where("status", "==","pending").limit(15).stream()
         return tasks
     
     def escape_markdown_v2(self,text: str) -> str:
@@ -86,7 +90,7 @@ class Firebase_Class:
         return datetime.now(ist)
     
     def day_spec_fb_data(self,id,inc):
-        return self.get_day_data(id,inc,0,0,23,59)
+        return self.all_tasks(id,inc,0,0,23,59)
     
     def days_diff(self, t1, t2):
         diff = int((self.convt_gdt_sdt(t1).day - self.convt_gdt_sdt(t2).day))
