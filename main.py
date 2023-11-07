@@ -76,7 +76,7 @@ def set_reminder(update: Update, context: CallbackContext):
             return ConversationHandler.END
         chat_id = update.message.chat_id
         batch = fire.ref_db().batch()
-        for days in [0, 3, 7, 15, 30]:
+        for days in [1, 3, 7, 15, 30]:
             task_ref = fire.ref_user_tasks_db(chat_id).document()
             batch.set(task_ref, {
                 "task": task_text,
