@@ -93,7 +93,7 @@ class Firebase_Class:
         return self.all_tasks(id,inc,0,0,23,59)
     
     def days_diff(self, t1, t2):
-        diff = int((self.convt_gdt_sdt(t1).day - self.convt_gdt_sdt(t2).day))
+        diff = int((self.convt_gdt_sdt(t1) - self.convt_gdt_sdt(t2)).days)
         special_cases = {
             0: 1,
             -1: 1,
